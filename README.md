@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rogulator
 
-## Getting Started
+An AI-enhanced roguelike where narrative emerges from play.
 
-First, run the development server:
+## Quick Start
 
 ```bash
+npm install
+cp .env.example .env.local  # Add API keys (optional)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What Is This
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+A turn-based dungeon crawler with a twist: an AI layer ("The Loom") weaves narrative around the mechanical gameplay. The game works without AI, but with it, rooms get atmospheric descriptions, combat gets narration, and monsters can have personalities and histories.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Current state**: Playable MVP with core mechanics. AI hooks scaffolded but not yet wired in.
 
-## Learn More
+## Controls
 
-To learn more about Next.js, take a look at the following resources:
+- **Move**: WASD or Arrow keys
+- **Rest**: Space or Period (heals faster)
+- **Attack**: Bump into enemies
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Docs
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - How it's built, design decisions
+- [ROADMAP.md](./ROADMAP.md) - What's done, what's next
 
-## Deploy on Vercel
+## Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Next.js 14 + TypeScript
+- Zustand (state with localStorage persistence)
+- Vercel AI SDK (Anthropic, OpenAI, Google support)
+- Tailwind CSS
