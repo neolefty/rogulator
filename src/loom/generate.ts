@@ -1,37 +1,64 @@
 // The Loom - AI generation functions
 
 import { generateText } from 'ai';
-import { models, ModelTier } from './models';
+import { getModel, hasAnyProvider, ModelTier } from './models';
 import { SYSTEM_PROMPT } from './prompts';
 
 export type GenerationResult = {
   text: string;
   success: boolean;
   error?: string;
+  aiEnabled: boolean;
 };
 
 export async function generate(
   prompt: string,
   tier: ModelTier = 'quick'
 ): Promise<GenerationResult> {
+  // Check if any AI provider is configured
+  if (!hasAnyProvider) {
+    return {
+      text: '',
+      success: false,
+      error: 'No AI provider configured',
+      aiEnabled: false,
+    };
+  }
+
+  const model = getModel(tier);
+  if (!model) {
+    return {
+      text: '',
+      success: false,
+      error: 'No model available for tier: ' + tier,
+      aiEnabled: false,
+    };
+  }
+
   try {
     const { text } = await generateText({
-      model: models[tier],
+      model,
       system: SYSTEM_PROMPT,
       prompt,
-      maxTokens: 150,
+      maxOutputTokens: 150,
       temperature: 0.8,
     });
 
-    return { text: text.trim(), success: true };
+    return { text: text.trim(), success: true, aiEnabled: true };
   } catch (error) {
     console.error('Loom generation error:', error);
     return {
       text: '',
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
+      aiEnabled: true,
     };
   }
+}
+
+// Check if AI is available (for UI feedback)
+export function isAIAvailable(): boolean {
+  return hasAnyProvider;
 }
 
 // Convenience wrappers for specific generation types

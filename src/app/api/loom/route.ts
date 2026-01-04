@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generate, GenerationResult } from '@/loom/generate';
-import { ModelTier } from '@/loom/models';
+import { ModelTier, hasAnyProvider } from '@/loom/models';
 
 export async function POST(request: NextRequest): Promise<NextResponse<GenerationResult>> {
   try {
@@ -9,7 +9,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Generatio
 
     if (!prompt) {
       return NextResponse.json(
-        { text: '', success: false, error: 'Prompt is required' },
+        { text: '', success: false, error: 'Prompt is required', aiEnabled: hasAnyProvider },
         { status: 400 }
       );
     }
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Generatio
         text: '',
         success: false,
         error: error instanceof Error ? error.message : 'Internal server error',
+        aiEnabled: hasAnyProvider,
       },
       { status: 500 }
     );
