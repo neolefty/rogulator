@@ -1,36 +1,21 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { GameState, RUN_CONFIGS, Position } from '@/engine/types';
-import { createNewGame, processPlayerMove, processPlayerClick, MoveDirection } from '@/engine/state';
+import { useEffect } from 'react';
+import { useGameStore } from '@/store/gameStore';
+import { MoveDirection } from '@/engine/state';
 import { Grid } from './Grid';
 import { Status } from './Status';
 
 export function GameView() {
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const [selectedSize, setSelectedSize] = useState<'quick' | 'short' | 'medium'>('quick');
-  const lastProcessedTurn = useRef<number>(-1);
-
-  const startNewGame = useCallback(() => {
-    const config = RUN_CONFIGS[selectedSize];
-    const state = createNewGame(config);
-    lastProcessedTurn.current = -1;
-    setGameState(state);
-  }, [selectedSize]);
-
-  // Move handler that prevents double-processing
-  const handleMove = useCallback((direction: MoveDirection) => {
-    setGameState((prev) => {
-      if (!prev || prev.status !== 'playing') return prev;
-      // Prevent double-processing same turn (React StrictMode)
-      if (prev.turn === lastProcessedTurn.current) return prev;
-      lastProcessedTurn.current = prev.turn;
-
-      const newState = { ...prev };
-      processPlayerMove(newState, direction);
-      return { ...newState };
-    });
-  }, []);
+  const {
+    gameState,
+    selectedSize,
+    setSelectedSize,
+    startNewGame,
+    move,
+    clickTile,
+    clearSave,
+  } = useGameStore();
 
   // Keyboard input
   useEffect(() => {
@@ -62,22 +47,13 @@ export function GameView() {
 
       if (direction) {
         e.preventDefault();
-        handleMove(direction);
+        move(direction);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleMove]);
-
-  const handleTileClick = useCallback((pos: Position) => {
-    setGameState((prev) => {
-      if (!prev || prev.status !== 'playing') return prev;
-      const newState = { ...prev };
-      processPlayerClick(newState, pos);
-      return { ...newState };
-    });
-  }, []);
+  }, [move]);
 
   // Start screen
   if (!gameState) {
@@ -135,12 +111,22 @@ export function GameView() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-amber-400">Rogulator</h1>
-          <button
-            onClick={startNewGame}
-            className="px-4 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm"
-          >
-            New Game
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={startNewGame}
+              className="px-4 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm"
+            >
+              New Game
+            </button>
+            {gameState.status !== 'playing' && (
+              <button
+                onClick={clearSave}
+                className="px-4 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm"
+              >
+                Main Menu
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Main game area - responsive layout */}
@@ -150,7 +136,7 @@ export function GameView() {
             <Grid
               floor={gameState.floor}
               player={gameState.player}
-              onTileClick={handleTileClick}
+              onTileClick={clickTile}
             />
           </div>
 
@@ -168,28 +154,28 @@ export function GameView() {
         <div className="md:hidden grid grid-cols-3 gap-2 w-48 mx-auto">
           <div />
           <button
-            onClick={() => handleMove('up')}
+            onClick={() => move('up')}
             className="p-4 bg-gray-800 rounded text-2xl active:bg-gray-600"
           >
             ↑
           </button>
           <div />
           <button
-            onClick={() => handleMove('left')}
+            onClick={() => move('left')}
             className="p-4 bg-gray-800 rounded text-2xl active:bg-gray-600"
           >
             ←
           </button>
           <div className="p-4 bg-gray-900 rounded text-center text-yellow-400">@</div>
           <button
-            onClick={() => handleMove('right')}
+            onClick={() => move('right')}
             className="p-4 bg-gray-800 rounded text-2xl active:bg-gray-600"
           >
             →
           </button>
           <div />
           <button
-            onClick={() => handleMove('down')}
+            onClick={() => move('down')}
             className="p-4 bg-gray-800 rounded text-2xl active:bg-gray-600"
           >
             ↓
