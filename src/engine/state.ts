@@ -5,14 +5,23 @@ import { generateFloor, createInitialPlayer } from './generator';
 import { updateVisibility } from './visibility';
 import { generateId } from './seeds';
 import { getNextStep } from './pathfinding';
-
-// Healing constants
-const HEAL_INTERVAL_MOVING = 10; // Heal 1 HP every N turns while moving
-const HEAL_INTERVAL_RESTING = 3; // Heal 1 HP every N turns while resting
+import { isWalkable, isCardinallyAdjacent, positionsEqual, distance, findRoomAtPosition } from './utils';
+import {
+  PLAYER_BASE_DAMAGE,
+  HEAL_AMOUNT,
+  HEAL_INTERVAL_MOVING,
+  HEAL_INTERVAL_RESTING,
+  MIN_DAMAGE,
+  MONSTER_DETECTION_RANGE,
+  MAX_MESSAGES,
+} from './balance';
 
 export function createNewGame(config: RunConfig): GameState {
   const { floor, playerStart } = generateFloor(1, config);
   const player = createInitialPlayer(playerStart);
+
+  // Find initial room
+  const initialRoom = findRoomAtPosition(playerStart, floor.rooms);
 
   const state: GameState = {
     runId: generateId(),
@@ -29,6 +38,8 @@ export function createNewGame(config: RunConfig): GameState {
         turn: 0,
       },
     ],
+    currentRoomId: initialRoom?.id ?? null,
+    previousRoomId: null,
   };
 
   // Initial visibility
@@ -39,16 +50,13 @@ export function createNewGame(config: RunConfig): GameState {
 
 function addMessage(state: GameState, text: string, type: GameMessage['type']): void {
   state.messages.push({ text, type, turn: state.turn });
-  // Keep only last 50 messages
-  if (state.messages.length > 50) {
-    state.messages = state.messages.slice(-50);
+  if (state.messages.length > MAX_MESSAGES) {
+    state.messages = state.messages.slice(-MAX_MESSAGES);
   }
 }
 
-function isWalkable(state: GameState, pos: Position): boolean {
-  const tile = state.floor.tiles[pos.y]?.[pos.x];
-  if (!tile) return false;
-  return tile.type !== 'wall';
+function isWalkableInState(state: GameState, pos: Position): boolean {
+  return isWalkable(state.floor.tiles, pos);
 }
 
 function getMonsterAt(state: GameState, pos: Position): Monster | undefined {
@@ -72,9 +80,8 @@ function removeMonster(state: GameState, monster: Monster): void {
 }
 
 function playerAttack(state: GameState, monster: Monster): void {
-  const baseDamage = 2;
   const weaponDamage = state.player.weapon?.effect ?? 0;
-  const totalDamage = baseDamage + weaponDamage;
+  const totalDamage = PLAYER_BASE_DAMAGE + weaponDamage;
 
   monster.currentHp -= totalDamage;
   addMessage(state, `You hit the ${monster.name} for ${totalDamage} damage!`, 'combat');
@@ -86,9 +93,8 @@ function playerAttack(state: GameState, monster: Monster): void {
 }
 
 function monsterAttack(state: GameState, monster: Monster): void {
-  const baseDamage = monster.damage;
   const armorReduction = state.player.armor?.effect ?? 0;
-  const totalDamage = Math.max(1, baseDamage - armorReduction);
+  const totalDamage = Math.max(MIN_DAMAGE, monster.damage - armorReduction);
 
   state.player.hp -= totalDamage;
   addMessage(state, `The ${monster.name} hits you for ${totalDamage} damage!`, 'combat');
@@ -164,18 +170,23 @@ function applyHealing(state: GameState, isResting: boolean): void {
 
   const interval = isResting ? HEAL_INTERVAL_RESTING : HEAL_INTERVAL_MOVING;
   if (state.turn > 0 && state.turn % interval === 0) {
-    state.player.hp = Math.min(state.player.hp + 1, state.player.maxHp);
+    state.player.hp = Math.min(state.player.hp + HEAL_AMOUNT, state.player.maxHp);
     if (isResting) {
       addMessage(state, 'You feel a bit better.', 'info');
     }
   }
 }
 
-function isCardinallyAdjacent(a: Position, b: Position): boolean {
-  const dx = Math.abs(a.x - b.x);
-  const dy = Math.abs(a.y - b.y);
-  // Exactly one tile away in exactly one direction (no diagonals)
-  return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+function updateCurrentRoom(state: GameState): boolean {
+  const newRoom = findRoomAtPosition(state.player.position, state.floor.rooms);
+  const newRoomId = newRoom?.id ?? null;
+
+  if (newRoomId !== state.currentRoomId) {
+    state.previousRoomId = state.currentRoomId;
+    state.currentRoomId = newRoomId;
+    return true; // Room changed
+  }
+  return false; // Same room
 }
 
 function moveMonsters(state: GameState): void {
@@ -191,11 +202,9 @@ function moveMonsters(state: GameState): void {
     if (Math.random() > monster.speed) continue;
 
     // Check if monster can see player (simple distance check)
-    const dx = state.player.position.x - monster.position.x;
-    const dy = state.player.position.y - monster.position.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const dist = distance(monster.position, state.player.position);
 
-    if (distance > 8) continue; // Too far to notice
+    if (dist > MONSTER_DETECTION_RANGE) continue; // Too far to notice
 
     // If cardinally adjacent, attack (no diagonal attacks)
     if (isCardinallyAdjacent(monster.position, state.player.position)) {
@@ -221,7 +230,7 @@ function moveMonsters(state: GameState): void {
       // Only move if not stepping onto player (we attack instead when adjacent)
       if (nextStep &&
           !getMonsterAt(state, nextStep) &&
-          !(nextStep.x === state.player.position.x && nextStep.y === state.player.position.y)) {
+          !positionsEqual(nextStep, state.player.position)) {
         monster.position = nextStep;
       }
     }
@@ -266,12 +275,15 @@ export function processPlayerMove(state: GameState, direction: MoveDirection): G
   }
 
   // Check walkable
-  if (!isWalkable(state, newPos)) {
+  if (!isWalkableInState(state, newPos)) {
     return state; // Can't move, no turn consumed
   }
 
   // Move player
   state.player.position = newPos;
+
+  // Track room changes
+  updateCurrentRoom(state);
 
   // Check for item pickup
   const item = getItemAt(state, newPos);
@@ -298,6 +310,15 @@ export function processPlayerRest(state: GameState): GameState {
   endTurn(state, true);
 
   return state;
+}
+
+export function getCurrentRoom(state: GameState): import('./types').Room | null {
+  if (!state.currentRoomId) return null;
+  return state.floor.rooms.find(r => r.id === state.currentRoomId) ?? null;
+}
+
+export function didEnterNewRoom(state: GameState): boolean {
+  return state.currentRoomId !== null && state.previousRoomId !== state.currentRoomId;
 }
 
 export function processPlayerClick(state: GameState, targetPos: Position): GameState {

@@ -1,6 +1,7 @@
 // Line-of-sight and visibility for Rogulator
 
 import { Floor, Position, Tile } from './types';
+import { VIEW_RADIUS } from './balance';
 
 // Simple raycasting for line of sight
 function lineOfSight(
@@ -41,7 +42,7 @@ function lineOfSight(
   }
 }
 
-export function updateVisibility(floor: Floor, playerPos: Position, viewRadius: number = 8): void {
+export function updateVisibility(floor: Floor, playerPos: Position, viewRadius: number = VIEW_RADIUS): void {
   const { tiles } = floor;
 
   // Reset visibility (but keep explored)
