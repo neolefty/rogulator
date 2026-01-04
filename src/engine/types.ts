@@ -136,4 +136,6 @@ export type GameState = {
   turn: number;
   status: GameStatus;
   messages: GameMessage[];
+  currentRoomId: string | null;     // Room player is currently in
+  previousRoomId: string | null;    // Room player was previously in (for detecting room entry)
 };

@@ -5,17 +5,19 @@ import {
   RoomType, RunConfig, MonsterTemplate, ItemTemplate, MacguffinTemplate
 } from './types';
 import { MONSTERS, ITEMS, MACGUFFINS, pickRandom, generateId } from './seeds';
+import {
+  FLOOR_WIDTH,
+  FLOOR_HEIGHT,
+  MONSTER_SPAWN_CHANCE,
+  ITEMS_PER_FLOOR_MIN,
+  ITEMS_PER_FLOOR_MAX,
+  ROOM_PLACEMENT_ATTEMPTS,
+  ROOM_PADDING,
+  ROOM_SIZES,
+  PLAYER_STARTING_HP,
+} from './balance';
 
 type Bounds = { x: number; y: number; width: number; height: number };
-
-// Room size configs
-const ROOM_SIZES: Record<RoomType, { minW: number; maxW: number; minH: number; maxH: number }> = {
-  entry: { minW: 5, maxW: 7, minH: 5, maxH: 7 },
-  exit: { minW: 5, maxW: 7, minH: 5, maxH: 7 },
-  corridor: { minW: 3, maxW: 3, minH: 5, maxH: 9 },
-  chamber: { minW: 5, maxW: 9, minH: 5, maxH: 9 },
-  dead_end: { minW: 4, maxW: 5, minH: 4, maxH: 5 },
-};
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -70,7 +72,7 @@ function getRoomCenter(bounds: Bounds): Position {
   };
 }
 
-function boundsOverlap(a: Bounds, b: Bounds, padding: number = 1): boolean {
+function boundsOverlap(a: Bounds, b: Bounds, padding: number = ROOM_PADDING): boolean {
   return !(
     a.x + a.width + padding < b.x ||
     b.x + b.width + padding < a.x ||
@@ -91,12 +93,12 @@ function tryPlaceRoom(
   const height = randomInt(size.minH, size.maxH);
 
   // Try random positions
-  for (let attempt = 0; attempt < 30; attempt++) {
+  for (let attempt = 0; attempt < ROOM_PLACEMENT_ATTEMPTS; attempt++) {
     const x = randomInt(1, floorWidth - width - 1);
     const y = randomInt(1, floorHeight - height - 1);
     const bounds: Bounds = { x, y, width, height };
 
-    const overlaps = existingRooms.some(existing => boundsOverlap(existing, bounds, 2));
+    const overlaps = existingRooms.some(existing => boundsOverlap(existing, bounds, ROOM_PADDING));
     if (!overlaps) {
       return bounds;
     }
@@ -141,12 +143,10 @@ export function generateFloor(
   floorNumber: number,
   config: RunConfig
 ): { floor: Floor; playerStart: Position } {
-  const floorWidth = 50;
-  const floorHeight = 40;
   const numRooms = config.roomsPerFloor;
 
   // Start with all walls
-  const tiles = createTileGrid(floorWidth, floorHeight, 'wall');
+  const tiles = createTileGrid(FLOOR_WIDTH, FLOOR_HEIGHT, 'wall');
   const roomBounds: Bounds[] = [];
   const rooms: Room[] = [];
 
@@ -157,7 +157,7 @@ export function generateFloor(
   }
 
   for (const roomType of roomTypes) {
-    const bounds = tryPlaceRoom(tiles, roomBounds, roomType, floorWidth, floorHeight);
+    const bounds = tryPlaceRoom(tiles, roomBounds, roomType, FLOOR_WIDTH, FLOOR_HEIGHT);
     if (bounds) {
       carveRoom(tiles, bounds);
       roomBounds.push(bounds);
@@ -197,8 +197,7 @@ export function generateFloor(
   const monsters: Monster[] = [];
   const nonEntryRooms = rooms.filter(r => r.type !== 'entry');
   for (const room of nonEntryRooms) {
-    // 50% chance of monster per non-entry room
-    if (Math.random() > 0.5) {
+    if (Math.random() < MONSTER_SPAWN_CHANCE) {
       const template = pickRandom(MONSTERS);
       const pos = getRandomFloorTile(room.bounds);
       // Don't spawn on stairs
@@ -208,9 +207,9 @@ export function generateFloor(
     }
   }
 
-  // Spawn items (1-2 per floor, not in entry)
+  // Spawn items
   const items: Item[] = [];
-  const itemCount = randomInt(1, 2);
+  const itemCount = randomInt(ITEMS_PER_FLOOR_MIN, ITEMS_PER_FLOOR_MAX);
   for (let i = 0; i < itemCount && nonEntryRooms.length > 0; i++) {
     const room = pickRandom(nonEntryRooms);
     const template = pickRandom(ITEMS);
@@ -240,8 +239,8 @@ export function generateFloor(
   return {
     floor: {
       number: floorNumber,
-      width: floorWidth,
-      height: floorHeight,
+      width: FLOOR_WIDTH,
+      height: FLOOR_HEIGHT,
       tiles,
       rooms,
       monsters,
@@ -255,8 +254,8 @@ export function generateFloor(
 export function createInitialPlayer(position: Position): import('./types').Player {
   return {
     position,
-    hp: 30,
-    maxHp: 30,
+    hp: PLAYER_STARTING_HP,
+    maxHp: PLAYER_STARTING_HP,
     weapon: null,
     armor: null,
     trinket: null,

@@ -1,6 +1,7 @@
 'use client';
 
 import { Floor, Position, Monster, Item, Macguffin, Player } from '@/engine/types';
+import { posKey } from '@/engine/utils';
 
 type GridProps = {
   floor: Floor;
@@ -54,13 +55,13 @@ export function Grid({ floor, player, onTileClick }: GridProps) {
   const monsterMap = new Map<string, Monster>();
   for (const m of monsters) {
     if (m.currentHp > 0) {
-      monsterMap.set(`${m.position.x},${m.position.y}`, m);
+      monsterMap.set(posKey(m.position), m);
     }
   }
 
   const itemMap = new Map<string, Item>();
   for (const i of items) {
-    itemMap.set(`${i.position.x},${i.position.y}`, i);
+    itemMap.set(posKey(i.position), i);
   }
 
   // Calculate viewport centered on player
@@ -87,9 +88,11 @@ export function Grid({ floor, player, onTileClick }: GridProps) {
           const tile = tiles[y]?.[x];
           if (!tile) return null;
 
+          const pos: Position = { x, y };
+          const key = posKey(pos);
           const isPlayer = player.position.x === x && player.position.y === y;
-          const monster = monsterMap.get(`${x},${y}`);
-          const item = itemMap.get(`${x},${y}`);
+          const monster = monsterMap.get(key);
+          const item = itemMap.get(key);
           const hasMacguffin =
             macguffin &&
             !macguffin.collected &&

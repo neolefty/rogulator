@@ -1,6 +1,8 @@
 // A* pathfinding for Rogulator
 
 import { Position, Tile } from './types';
+import { posKey, manhattanDistance, isWalkable, positionsEqual } from './utils';
+import { PATHFINDING_MAX_DEPTH } from './balance';
 
 type Node = {
   pos: Position;
@@ -9,21 +11,6 @@ type Node = {
   f: number; // g + h
   parent: Node | null;
 };
-
-function heuristic(a: Position, b: Position): number {
-  // Manhattan distance
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-}
-
-function posKey(pos: Position): string {
-  return `${pos.x},${pos.y}`;
-}
-
-function isWalkable(tiles: Tile[][], pos: Position): boolean {
-  const tile = tiles[pos.y]?.[pos.x];
-  if (!tile) return false;
-  return tile.type !== 'wall';
-}
 
 const DIRECTIONS: Position[] = [
   { x: 0, y: -1 }, // up
@@ -41,7 +28,7 @@ export function findPath(
   tiles: Tile[][],
   start: Position,
   goal: Position,
-  maxLength: number = 20,
+  maxLength: number = PATHFINDING_MAX_DEPTH,
   blockedPositions: Position[] = []
 ): Position[] | null {
   // Quick exit if goal is unreachable
@@ -54,8 +41,8 @@ export function findPath(
   const startNode: Node = {
     pos: start,
     g: 0,
-    h: heuristic(start, goal),
-    f: heuristic(start, goal),
+    h: manhattanDistance(start, goal),
+    f: manhattanDistance(start, goal),
     parent: null,
   };
   openSet.push(startNode);
@@ -67,7 +54,7 @@ export function findPath(
     const currentKey = posKey(current.pos);
 
     // Found the goal
-    if (current.pos.x === goal.x && current.pos.y === goal.y) {
+    if (positionsEqual(current.pos, goal)) {
       // Reconstruct path
       const path: Position[] = [];
       let node: Node | null = current;
@@ -97,7 +84,7 @@ export function findPath(
       if (!isWalkable(tiles, neighborPos)) continue;
 
       const g = current.g + 1;
-      const h = heuristic(neighborPos, goal);
+      const h = manhattanDistance(neighborPos, goal);
       const f = g + h;
 
       // Check if this path to neighbor is better
@@ -134,7 +121,7 @@ export function getNextStep(
   to: Position,
   blockedPositions: Position[] = []
 ): Position | null {
-  const path = findPath(tiles, from, to, 20, blockedPositions);
+  const path = findPath(tiles, from, to, PATHFINDING_MAX_DEPTH, blockedPositions);
   if (!path || path.length < 2) return null;
   return path[1]; // path[0] is the current position
 }
