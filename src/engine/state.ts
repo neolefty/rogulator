@@ -1,6 +1,6 @@
 // Game state management for Rogulator
 
-import { GameState, RunConfig, Position, GameMessage, Monster, Item } from './types';
+import { GameState, RunConfig, Position, GameMessage, Monster, Item, Room } from './types';
 import { generateFloor, createInitialPlayer } from './generator';
 import { updateVisibility } from './visibility';
 import { generateId } from './seeds';
@@ -312,7 +312,7 @@ export function processPlayerRest(state: GameState): GameState {
   return state;
 }
 
-export function getCurrentRoom(state: GameState): import('./types').Room | null {
+export function getCurrentRoom(state: GameState): Room | null {
   if (!state.currentRoomId) return null;
   return state.floor.rooms.find(r => r.id === state.currentRoomId) ?? null;
 }

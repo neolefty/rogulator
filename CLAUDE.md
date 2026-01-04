@@ -36,6 +36,10 @@ AI-enhanced roguelike. The engine works without AI; The Loom adds narrative.
 - Monsters only attack cardinally (matching player movement)
 - API keys in `.env.local` (see `.env.example`)
 
+## Copilot Reviews
+
+Copilot finds real bugs and inconsistencies - fix those. Ignore suggestions for JSDoc or comments that just restate what clear function names already say.
+
 ## Docs
 
 - `ARCHITECTURE.md` - Design philosophy, why AI+mechanical hybrid

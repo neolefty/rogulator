@@ -20,7 +20,7 @@ export const MONSTER_DETECTION_RANGE = 8;
 // === Generation ===
 export const FLOOR_WIDTH = 50;
 export const FLOOR_HEIGHT = 40;
-export const MONSTER_SPAWN_CHANCE = 0.5;
+export const MONSTER_SPAWN_CHANCE = 0.5;  // Probability per non-entry room
 export const ITEMS_PER_FLOOR_MIN = 1;
 export const ITEMS_PER_FLOOR_MAX = 2;
 export const ROOM_PLACEMENT_ATTEMPTS = 30;
