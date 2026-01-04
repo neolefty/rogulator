@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { GameState, RunConfig, RUN_CONFIGS, Position } from '@/engine/types';
-import { createNewGame, processPlayerMove, processPlayerClick, MoveDirection } from '@/engine/state';
+import { createNewGame, processPlayerMove, processPlayerClick, processPlayerRest, MoveDirection } from '@/engine/state';
 
 type GameStore = {
   // State
@@ -14,6 +14,7 @@ type GameStore = {
   setSelectedSize: (size: RunConfig['size']) => void;
   startNewGame: () => void;
   move: (direction: MoveDirection) => void;
+  rest: () => void;
   clickTile: (position: Position) => void;
   clearSave: () => void;
 };
@@ -42,6 +43,14 @@ export const useGameStore = create<GameStore>()(
         // Mutate in place - Zustand handles this fine
         processPlayerMove(gameState, direction);
         // Spread to trigger re-render
+        set({ gameState: { ...gameState } });
+      },
+
+      rest: () => {
+        const { gameState } = get();
+        if (!gameState || gameState.status !== 'playing') return;
+
+        processPlayerRest(gameState);
         set({ gameState: { ...gameState } });
       },
 

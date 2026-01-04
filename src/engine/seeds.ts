@@ -8,6 +8,7 @@ export const MONSTERS: MonsterTemplate[] = [
     name: 'Rat',
     hp: 4,
     damage: 1,
+    speed: 0.9, // Fast and skittery
     behavior: 'aggressive',
     disposition: 'hostile',
     symbol: 'r',
@@ -18,6 +19,7 @@ export const MONSTERS: MonsterTemplate[] = [
     name: 'Goblin',
     hp: 8,
     damage: 2,
+    speed: 0.75, // Moderately quick
     behavior: 'aggressive',
     disposition: 'hostile',
     symbol: 'g',
@@ -28,6 +30,7 @@ export const MONSTERS: MonsterTemplate[] = [
     name: 'Skeleton',
     hp: 12,
     damage: 3,
+    speed: 0.5, // Slow and shambling
     behavior: 'aggressive',
     disposition: 'hostile',
     symbol: 's',

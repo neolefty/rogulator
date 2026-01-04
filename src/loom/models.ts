@@ -1,10 +1,12 @@
 // The Loom - AI model configuration for Rogulator
 // Supports Anthropic, OpenAI, and Google with automatic fallback
+// Uses dynamic model discovery with fallback to hardcoded defaults
 
 import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
 import { google } from '@ai-sdk/google';
 import { LanguageModel } from 'ai';
+import { getCachedModels, getModelForTier, type ModelCache } from './model-discovery';
 
 // Check which providers are available
 export const providers = {
@@ -15,27 +17,52 @@ export const providers = {
 
 export const hasAnyProvider = Object.values(providers).some(Boolean);
 
-// Model definitions by provider and tier
-const modelOptions = {
+// Fallback model definitions (used when cache is empty or missing)
+const fallbackModels = {
   anthropic: {
-    quick: () => anthropic('claude-3-5-haiku-latest'),
-    standard: () => anthropic('claude-sonnet-4-20250514'),
-    premium: () => anthropic('claude-sonnet-4-20250514'), // or claude-opus-4-20250514
+    quick: 'claude-3-5-haiku-latest',
+    standard: 'claude-sonnet-4-20250514',
+    premium: 'claude-sonnet-4-20250514',
   },
   openai: {
-    quick: () => openai('gpt-4o-mini'),
-    standard: () => openai('gpt-4o'),
-    premium: () => openai('gpt-4o'),
+    quick: 'gpt-4o-mini',
+    standard: 'gpt-4o',
+    premium: 'gpt-4o',
   },
   google: {
-    quick: () => google('gemini-2.0-flash'),
-    standard: () => google('gemini-1.5-pro'),
-    premium: () => google('gemini-1.5-pro'),
+    quick: 'gemini-2.0-flash',
+    standard: 'gemini-1.5-pro',
+    premium: 'gemini-1.5-pro',
   },
 } as const;
 
+// Model factory functions by provider
+const modelFactories = {
+  anthropic: (modelId: string) => anthropic(modelId),
+  openai: (modelId: string) => openai(modelId),
+  google: (modelId: string) => google(modelId),
+};
+
+// Get the model ID to use for a given provider and tier
+function getModelId(
+  provider: Provider,
+  tier: ModelTier,
+  cache: ModelCache | null
+): string {
+  // Try to use discovered model from cache
+  if (cache) {
+    const discovered = getModelForTier(cache, provider, tier);
+    if (discovered) {
+      return discovered.id;
+    }
+  }
+
+  // Fall back to hardcoded defaults
+  return fallbackModels[provider][tier];
+}
+
 export type ModelTier = 'quick' | 'standard' | 'premium';
-export type Provider = keyof typeof modelOptions;
+export type Provider = 'anthropic' | 'openai' | 'google';
 
 // Get the preferred provider order (configured ones first)
 function getProviderOrder(): Provider[] {
@@ -47,6 +74,7 @@ function getProviderOrder(): Provider[] {
 }
 
 // Get a model for the given tier, using available providers
+// Uses discovered models from cache, falls back to hardcoded defaults
 export function getModel(tier: ModelTier): LanguageModel | null {
   const providerOrder = getProviderOrder();
 
@@ -56,7 +84,10 @@ export function getModel(tier: ModelTier): LanguageModel | null {
 
   // Use the first available provider
   const provider = providerOrder[0];
-  return modelOptions[provider][tier]();
+  const cache = getCachedModels();
+  const modelId = getModelId(provider, tier, cache);
+
+  return modelFactories[provider](modelId);
 }
 
 // Get a specific provider's model (for testing or preference)
@@ -64,10 +95,17 @@ export function getModelFromProvider(provider: Provider, tier: ModelTier): Langu
   if (!providers[provider]) {
     return null;
   }
-  return modelOptions[provider][tier]();
+
+  const cache = getCachedModels();
+  const modelId = getModelId(provider, tier, cache);
+
+  return modelFactories[provider](modelId);
 }
 
 // For debugging/status
 export function getProviderStatus(): Record<Provider, boolean> {
   return { ...providers };
 }
+
+// Re-export sync function for convenience
+export { syncAllModels, isCacheStale } from './model-discovery';

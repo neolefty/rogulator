@@ -13,6 +13,7 @@ export function GameView() {
     setSelectedSize,
     startNewGame,
     move,
+    rest,
     clickTile,
     clearSave,
   } = useGameStore();
@@ -43,6 +44,11 @@ export function GameView() {
         case 'D':
           direction = 'right';
           break;
+        case ' ':
+        case '.':
+          e.preventDefault();
+          rest();
+          return;
       }
 
       if (direction) {
@@ -53,7 +59,7 @@ export function GameView() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [move]);
+  }, [move, rest]);
 
   // Start screen
   if (!gameState) {
@@ -96,6 +102,7 @@ export function GameView() {
 
           <div className="text-xs text-gray-500 mt-8">
             <p>Move: Arrow keys or WASD</p>
+            <p>Wait/Rest: Space or Period (heals faster)</p>
             <p>Attack: Bump into enemies</p>
             <p>Goal: Find the macguffin and escape!</p>
           </div>

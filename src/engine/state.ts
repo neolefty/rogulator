@@ -4,6 +4,11 @@ import { GameState, RunConfig, Position, GameMessage, Monster, Item } from './ty
 import { generateFloor, createInitialPlayer } from './generator';
 import { updateVisibility } from './visibility';
 import { generateId } from './seeds';
+import { getNextStep } from './pathfinding';
+
+// Healing constants
+const HEAL_INTERVAL_MOVING = 10; // Heal 1 HP every N turns while moving
+const HEAL_INTERVAL_RESTING = 3; // Heal 1 HP every N turns while resting
 
 export function createNewGame(config: RunConfig): GameState {
   const { floor, playerStart } = generateFloor(1, config);
@@ -154,9 +159,29 @@ function checkWinCondition(state: GameState): void {
   }
 }
 
+function applyHealing(state: GameState, isResting: boolean): void {
+  if (state.player.hp >= state.player.maxHp) return;
+
+  const interval = isResting ? HEAL_INTERVAL_RESTING : HEAL_INTERVAL_MOVING;
+  if (state.turn > 0 && state.turn % interval === 0) {
+    state.player.hp = Math.min(state.player.hp + 1, state.player.maxHp);
+    if (isResting) {
+      addMessage(state, 'You feel a bit better.', 'info');
+    }
+  }
+}
+
 function moveMonsters(state: GameState): void {
+  // Get positions of all living monsters (to avoid collisions)
+  const monsterPositions = state.floor.monsters
+    .filter(m => m.currentHp > 0)
+    .map(m => m.position);
+
   for (const monster of state.floor.monsters) {
     if (monster.currentHp <= 0) continue;
+
+    // Speed check - monster may skip this turn
+    if (Math.random() > monster.speed) continue;
 
     // Check if monster can see player (simple distance check)
     const dx = state.player.position.x - monster.position.x;
@@ -171,26 +196,41 @@ function moveMonsters(state: GameState): void {
       continue;
     }
 
-    // Move towards player (simple approach)
+    // Use pathfinding to move towards player
     if (monster.behavior === 'aggressive' || monster.behavior === 'passive') {
-      const moveX = dx !== 0 ? (dx > 0 ? 1 : -1) : 0;
-      const moveY = dy !== 0 ? (dy > 0 ? 1 : -1) : 0;
+      // Block positions of other monsters (except self)
+      const blockedPositions = monsterPositions.filter(
+        p => !(p.x === monster.position.x && p.y === monster.position.y)
+      );
+      // Also block player position (we want to move adjacent, not onto)
+      blockedPositions.push(state.player.position);
 
-      // Try horizontal first, then vertical
-      const newPos: Position = { x: monster.position.x + moveX, y: monster.position.y };
-      if (isWalkable(state, newPos) && !getMonsterAt(state, newPos)) {
-        monster.position = newPos;
-      } else {
-        const altPos: Position = { x: monster.position.x, y: monster.position.y + moveY };
-        if (isWalkable(state, altPos) && !getMonsterAt(state, altPos)) {
-          monster.position = altPos;
-        }
+      const nextStep = getNextStep(
+        state.floor.tiles,
+        monster.position,
+        state.player.position,
+        blockedPositions
+      );
+
+      if (nextStep && !getMonsterAt(state, nextStep)) {
+        monster.position = nextStep;
       }
     }
   }
 }
 
 export type MoveDirection = 'up' | 'down' | 'left' | 'right';
+
+function endTurn(state: GameState, isResting: boolean): void {
+  state.turn++;
+  applyHealing(state, isResting);
+
+  if (state.status === 'playing') {
+    moveMonsters(state);
+  }
+
+  updateVisibility(state.floor, state.player.position);
+}
 
 export function processPlayerMove(state: GameState, direction: MoveDirection): GameState {
   if (state.status !== 'playing') return state;
@@ -212,9 +252,7 @@ export function processPlayerMove(state: GameState, direction: MoveDirection): G
   const monster = getMonsterAt(state, newPos);
   if (monster) {
     playerAttack(state, monster);
-    state.turn++;
-    moveMonsters(state);
-    updateVisibility(state.floor, state.player.position);
+    endTurn(state, false);
     return state;
   }
 
@@ -225,7 +263,6 @@ export function processPlayerMove(state: GameState, direction: MoveDirection): G
 
   // Move player
   state.player.position = newPos;
-  state.turn++;
 
   // Check for item pickup
   const item = getItemAt(state, newPos);
@@ -239,13 +276,17 @@ export function processPlayerMove(state: GameState, direction: MoveDirection): G
   // Check win condition
   checkWinCondition(state);
 
-  // Monster turns
-  if (state.status === 'playing') {
-    moveMonsters(state);
-  }
+  // End turn
+  endTurn(state, false);
 
-  // Update visibility
-  updateVisibility(state.floor, state.player.position);
+  return state;
+}
+
+export function processPlayerRest(state: GameState): GameState {
+  if (state.status !== 'playing') return state;
+
+  addMessage(state, 'You wait...', 'info');
+  endTurn(state, true);
 
   return state;
 }
@@ -264,6 +305,11 @@ export function processPlayerClick(state: GameState, targetPos: Position): GameS
     } else {
       return processPlayerMove(state, dy > 0 ? 'down' : 'up');
     }
+  }
+
+  // Clicking on self = rest
+  if (dx === 0 && dy === 0) {
+    return processPlayerRest(state);
   }
 
   // For now, only handle adjacent moves

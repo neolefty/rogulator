@@ -20,6 +20,7 @@ export type MonsterTemplate = {
   name: string;
   hp: number;
   damage: number;
+  speed: number; // 0-1, chance to act each turn (1 = always, 0.5 = half the time)
   behavior: MonsterBehavior;
   disposition: MonsterDisposition;
   symbol: string;
