@@ -171,6 +171,13 @@ function applyHealing(state: GameState, isResting: boolean): void {
   }
 }
 
+function isCardinallyAdjacent(a: Position, b: Position): boolean {
+  const dx = Math.abs(a.x - b.x);
+  const dy = Math.abs(a.y - b.y);
+  // Exactly one tile away in exactly one direction (no diagonals)
+  return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+}
+
 function moveMonsters(state: GameState): void {
   // Get positions of all living monsters (to avoid collisions)
   const monsterPositions = state.floor.monsters
@@ -190,8 +197,8 @@ function moveMonsters(state: GameState): void {
 
     if (distance > 8) continue; // Too far to notice
 
-    // If adjacent, attack
-    if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && (dx !== 0 || dy !== 0)) {
+    // If cardinally adjacent, attack (no diagonal attacks)
+    if (isCardinallyAdjacent(monster.position, state.player.position)) {
       monsterAttack(state, monster);
       continue;
     }
@@ -202,8 +209,7 @@ function moveMonsters(state: GameState): void {
       const blockedPositions = monsterPositions.filter(
         p => !(p.x === monster.position.x && p.y === monster.position.y)
       );
-      // Also block player position (we want to move adjacent, not onto)
-      blockedPositions.push(state.player.position);
+      // Don't block player - we want to pathfind TO them, but we'll stop when adjacent
 
       const nextStep = getNextStep(
         state.floor.tiles,
@@ -212,7 +218,10 @@ function moveMonsters(state: GameState): void {
         blockedPositions
       );
 
-      if (nextStep && !getMonsterAt(state, nextStep)) {
+      // Only move if not stepping onto player (we attack instead when adjacent)
+      if (nextStep &&
+          !getMonsterAt(state, nextStep) &&
+          !(nextStep.x === state.player.position.x && nextStep.y === state.player.position.y)) {
         monster.position = nextStep;
       }
     }

@@ -28,13 +28,24 @@ const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 function inferTier(modelId: string): 'quick' | 'standard' | 'premium' | null {
   const id = modelId.toLowerCase();
 
-  // Quick tier: fast, cheap models
-  if (id.includes('haiku') || id.includes('mini') || id.includes('flash')) {
+  // Quick tier: fast, cheap models (check first since "mini" appears in some premium names)
+  if (
+    id.includes('haiku') ||
+    id.includes('mini') ||
+    id.includes('flash') ||
+    id.includes('lite')
+  ) {
     return 'quick';
   }
 
   // Premium tier: best quality models
-  if (id.includes('opus') || id.includes('ultra') || id.includes('o1') || id.includes('o3')) {
+  if (
+    id.includes('opus') ||
+    id.includes('ultra') ||
+    /\bo1\b/.test(id) ||       // o1 but not o1-mini (already caught above)
+    /\bo3\b/.test(id) ||       // o3 but not o3-mini
+    id.includes('deep-think')
+  ) {
     return 'premium';
   }
 
@@ -42,6 +53,7 @@ function inferTier(modelId: string): 'quick' | 'standard' | 'premium' | null {
   if (
     id.includes('sonnet') ||
     id.includes('gpt-4o') ||
+    id.includes('gpt-4.1') ||
     id.includes('gpt-4-turbo') ||
     id.includes('pro')
   ) {
@@ -60,11 +72,13 @@ function isRelevantModel(modelId: string, provider: string): boolean {
   }
 
   if (provider === 'openai') {
-    // Include GPT models, exclude embeddings, whisper, dall-e, etc.
+    // Include GPT and o-series models, exclude embeddings, whisper, dall-e, etc.
     return (
-      (id.includes('gpt') || id.includes('o1') || id.includes('o3')) &&
+      (id.includes('gpt') || /\bo[1-4]/.test(id)) &&  // gpt-* or o1, o3, o4, etc.
       !id.includes('instruct') &&
-      !id.includes('realtime')
+      !id.includes('realtime') &&
+      !id.includes('audio') &&
+      !id.includes('tts')
     );
   }
 

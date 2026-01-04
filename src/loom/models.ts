@@ -18,21 +18,22 @@ export const providers = {
 export const hasAnyProvider = Object.values(providers).some(Boolean);
 
 // Fallback model definitions (used when cache is empty or missing)
+// Updated Jan 2026 based on latest available models
 const fallbackModels = {
   anthropic: {
-    quick: 'claude-3-5-haiku-latest',
-    standard: 'claude-sonnet-4-20250514',
-    premium: 'claude-sonnet-4-20250514',
+    quick: 'claude-haiku-4-5-latest',      // Haiku 4.5 (Oct 2025)
+    standard: 'claude-sonnet-4-5-latest',  // Sonnet 4.5 (Sep 2025)
+    premium: 'claude-opus-4-5-latest',     // Opus 4.5 (Nov 2025)
   },
   openai: {
-    quick: 'gpt-4o-mini',
-    standard: 'gpt-4o',
-    premium: 'gpt-4o',
+    quick: 'gpt-4o-mini',                  // Fast, cost-efficient
+    standard: 'gpt-4.1',                   // Better coding than 4o
+    premium: 'o3',                         // Best reasoning model
   },
   google: {
-    quick: 'gemini-2.0-flash',
-    standard: 'gemini-1.5-pro',
-    premium: 'gemini-1.5-pro',
+    quick: 'gemini-2.0-flash',             // Fast, 1M context
+    standard: 'gemini-2.5-pro',            // Advanced reasoning
+    premium: 'gemini-2.5-pro',             // Same (no separate premium tier)
   },
 } as const;
 
